@@ -10,7 +10,9 @@ Mi MIX4 (SM8350 / MIUI 12.5.2.0 / 5.4.86-qgki / kgsl2023) 定制内核源码与�
 | config/ | 最终内核配置 v50susfs_prod.cfg |
 | local/builder_odin.sh | 构建脚本(本地或云端通用) |
 | tools/pack_boot.py | boot.img 打包(新 Image + 原厂 ramdisk) |
-| .github/workflows/build.yml | GitHub Actions 云端编译 |
+| .github/workflows/build.yml | GitHub Actions 云端编译(boot.img + 完整 AK3 zip) |
+| ak3/ | AK3 刷机包骨架(anykernel.sh/META-INF/tools/三模块脚本) |
+| tools/pack_ak3.py | 完整 AK3 zip 组装(Image+dtbo+vendor_boot+模块) |
 
 ## 资源(Release v50-full-ATK12)
 
@@ -24,7 +26,11 @@ Mi MIX4 (SM8350 / MIUI 12.5.2.0 / 5.4.86-qgki / kgsl2023) 定制内核源码与�
 
 1. Actions 页 → "MIX4 odin kernel build" → Run workflow
 2. 编译约 20~40 分钟(首次;后续有 ccache 缓存更快)
-3. 产物 Image / boot.img 在本次运行的 Artifacts 里下载
+3. 产物在本次运行的 Artifacts 下载:
+   - Image — 内核
+   - boot.img — 可直刷 boot(仅内核+ramdisk)
+   - odin-full.zip — **完整 AK3 包**(TWRP 直刷;含 144Hz dtbo、GPU 降压
+     vendor_boot、0805 相机驱动等全部功能,boot 单刷覆盖不到的部分都在这里)
 
 ### 本地(Linux/WSL)
 
