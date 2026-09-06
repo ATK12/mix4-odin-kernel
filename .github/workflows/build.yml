@@ -4,12 +4,14 @@ on:
   workflow_dispatch:
   push:
     branches: [ main ]
-    paths: [ 'odin_patch/**', 'config/**', '.github/workflows/**' ]
+    paths: [ 'odin_patch/**', 'config/**', '.github/workflows/**', 'ak3/**' ]
 
 env:
   TZ: Asia/Shanghai
   REPO: ATK12/mix4-odin-kernel
   BASE_TAG: v50-full-ATK12
+  CCACHE_TAG: ccache
+  CCACHE_MAXSIZE: 1G
 
 jobs:
   build:
@@ -22,11 +24,27 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq zstd pahole bc bison flex cpio libssl-dev libelf-dev ccache binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu
 
-      - name: load ccache
+      - name: load repo cache
+        id: cache-load
         uses: actions/cache@v4
         with:
           path: ~/.ccache
           key: odin-ccache-main
+
+      - name: fetch shared ccache on miss
+        if: ${{ steps.cache-load.outputs.cache-hit != 'true' }}
+        run: |
+          echo "repo cache miss, trying shared ccache ..."
+          mkdir -p ~/.ccache
+          # 1) ATK12 public shared cache (usable by every fork)
+          curl -sL --retry 3 -o shared.tar.zst "https://github.com/ATK12/mix4-odin-kernel/releases/download/$CCACHE_TAG/odin-ccache.tar.zst" || true
+          if [ -s shared.tar.zst ]; then tar -I zstd -xf shared.tar.zst -C ~/.ccache && echo "shared ccache loaded (ATK12)"; fi
+          # 2) own repo cache (forks keep their own uploads)
+          if [ ! -s shared.tar.zst ]; then
+            curl -sL --retry 3 -o own.tar.zst "https://github.com/${{ github.repository }}/releases/download/$CCACHE_TAG/odin-ccache.tar.zst" || true
+            if [ -s own.tar.zst ]; then tar -I zstd -xf own.tar.zst -C ~/.ccache && echo "own ccache loaded"; fi
+          fi
+          ccache -s 2>/dev/null || true
 
       - name: build kernel
         run: |
@@ -59,7 +77,8 @@ jobs:
             out-artifacts/Image
             out-artifacts/boot.img
             out-artifacts/odin-full.zip
-      - name: publish release (dispatch only)
+
+      - name: publish build release (dispatch only)
         if: github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -67,5 +86,18 @@ jobs:
           TAG="build-$(date +%y%m%d%H%M%S)"
           gh release create "$TAG" out-artifacts/Image out-artifacts/boot.img out-artifacts/odin-full.zip \
             --repo "$REPO" --title "MIX4 odin kernel build $TAG" \
-            --notes "Auto build artifacts: Image (kernel) / boot.img (flashable boot) / odin-full.zip (complete AK3: 144Hz dtbo + GPU UV vendor_boot + 0805 dual GPU driver + modules). Author: ATK12"
+            --notes "Auto build artifacts: Image / boot.img / odin-full.zip (complete AK3). Author: ATK12"
 
+      - name: upload shared ccache (auto)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo ">>> packing ccache ..."
+          ccache -c 2>/dev/null || true
+          tar -I "zstd -T0 -15" -cf odin-ccache.tar.zst -C ~/.ccache .
+          echo "ccache pack: $(du -h odin-ccache.tar.zst | cut -f1)"
+          echo ">>> upload to ${{ github.repository }} ..."
+          gh release view "$CCACHE_TAG" --repo "${{ github.repository }}" >/dev/null 2>&1 || gh release create "$CCACHE_TAG" --repo "${{ github.repository }}" --title "shared ccache" --notes "auto uploaded after builds" >/dev/null 2>&1 || true
+          gh release upload "$CCACHE_TAG" odin-ccache.tar.zst --repo "${{ github.repository }}" --clobber 2>&1 || echo "ccache upload skipped"
+          echo ">>> ccache upload done"
