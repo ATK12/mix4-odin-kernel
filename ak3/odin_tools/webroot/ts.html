@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0b0e14">
+<title>MIX4 触控采样率</title>
+<style>
+:root{
+  --bg:#0b0e14; --card:rgba(255,255,255,.055); --card2:rgba(255,255,255,.03);
+  --line:rgba(255,255,255,.09); --txt:#e8ecf4; --sub:#8b93a7;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans SC",sans-serif;min-height:100%}
+body{background:radial-gradient(1200px 500px at 80% -10%,rgba(79,70,229,.16),transparent 60%),radial-gradient(900px 400px at -10% 20%,rgba(6,182,212,.10),transparent 55%),var(--bg);padding:20px 16px calc(24px + env(safe-area-inset-bottom))}
+.wrap{max-width:430px;margin:0 auto}
+header{text-align:center;padding:8px 0 18px}
+h1{font-size:22px;font-weight:700;letter-spacing:.5px;background:linear-gradient(120deg,#a5b4fc,#22d3ee);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:var(--sub);font-size:12px;margin-top:5px}
+.badge{display:inline-block;margin-top:10px;font-size:10px;color:#c4b5fd;border:1px solid rgba(167,139,250,.35);background:rgba(167,139,250,.1);padding:3px 10px;border-radius:99px;letter-spacing:.5px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;backdrop-filter:blur(8px);margin-bottom:14px}
+.stat{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
+.stat .k{font-size:11px;color:var(--sub);margin-bottom:6px}
+.stat .v{font-size:20px;font-weight:700;line-height:1;color:#22d3ee}
+h2{font-size:13px;color:var(--sub);margin:4px 2px 12px;font-weight:500;letter-spacing:.3px}
+.btns{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.btn{position:relative;border:none;border-radius:14px;padding:16px 8px;font-size:16px;font-weight:700;color:#fff;cursor:pointer;transition:transform .12s,filter .12s;box-shadow:0 6px 18px rgba(0,0,0,.35);overflow:hidden}
+.btn:active{transform:scale(.96)}
+.btn .hz{font-size:20px}
+.btn .t{display:block;font-size:10px;font-weight:500;opacity:.85;margin-top:3px}
+.btn480{background:linear-gradient(135deg,#7c3aed,#c026d3)}
+.btn240{background:linear-gradient(135deg,#0e7490,#06b6d4)}
+.btn.active::after{content:"✓";position:absolute;top:8px;right:10px;font-size:14px;font-weight:800;background:rgba(0,0,0,.25);border-radius:99px;padding:1px 7px}
+.btn:disabled{opacity:.55;pointer-events:none}
+.btn:disabled .t{opacity:.5}
+.hint{text-align:center;color:#475569;font-size:11px;margin-top:16px}
+.warn{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#fca5a5;border-radius:12px;padding:10px 12px;font-size:11px;line-height:1.7;margin-bottom:14px}
+.back{display:block;text-align:center;margin-top:20px;color:#8b93a7;font-size:12px;text-decoration:none;padding:10px;border:1px solid var(--line);border-radius:12px}
+.back:active{opacity:.6}
+#toast{position:fixed;left:50%;bottom:calc(30px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);background:rgba(20,24,32,.95);color:#e2e8f0;padding:10px 18px;border-radius:99px;font-size:13px;border:1px solid var(--line);box-shadow:0 8px 24px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:99}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:sp 0.8s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>MIX4 触控采样率</h1>
+    <div class="sub">odin_tools · 触控优化页</div>
+    <span class="badge">Game_Mode 切换</span>
+  </header>
+
+  <div class="card">
+    <div class="stat"><div class="k">当前采样率</div><div class="v" id="sTs">--</div></div>
+  </div>
+
+  <div class="warn">240/480 两档均实测有效（固件档位：mode0/mode1）。</div>
+
+  <h2>切换采样率</h2>
+  <div class="btns">
+    <button class="btn btn480" data-ts="480"><span class="hz">480Hz</span><span class="t">游戏 · 已验证</span></button>
+    <button class="btn btn240" data-ts="240"><span class="hz">240Hz</span><span class="t">默认 · 标准</span></button>
+  </div>
+
+  <a class="back" href="modes.html">← 返回主页面</a>
+  <div class="hint">切换立即生效 · 重启后恢复 240Hz</div>
+</div>
+<div id="toast"></div>
+
+<script>
+let _cc = 0;
+function ksuExec(cmd) {
+  return new Promise((resolve, reject) => {
+    if (typeof ksu === 'undefined' || !ksu || !ksu.exec) {
+      reject(new Error('KSU bridge not available'));
+      return;
+    }
+    const name = 'cb_' + Date.now() + '_' + (_cc++);
+    window[name] = function (errno, stdout, stderr) {
+      delete window[name];
+      resolve({ errno: errno | 0, stdout: stdout || '', stderr: stderr || '' });
+    };
+    try {
+      ksu.exec(cmd, '{}', name);
+    } catch (e) {
+      delete window[name];
+      reject(e);
+    }
+  });
+}
+
+const MOD = '/data/adb/modules/odin_tools';
+let toastTimer = null;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+async function readTs() {
+  try {
+    const r = await ksuExec('cat ' + MOD + '/.ts_mode 2>/dev/null || echo 240');
+    const v = (r.stdout || '').trim() || '240';
+    document.getElementById('sTs').textContent = v + ' Hz';
+    document.querySelectorAll('.btn[data-ts]').forEach(b => b.classList.remove('active'));
+    const btn = document.querySelector('.btn[data-ts="' + v + '"]');
+    if (btn) btn.classList.add('active');
+  } catch (e) {
+    document.getElementById('sTs').textContent = 'N/A';
+  }
+}
+
+async function setTs(hz) {
+  const btn = document.querySelector('.btn[data-ts="' + hz + '"]');
+  if (!btn) return;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span><span class="hz">应用中</span>';
+  try {
+    const script = hz === '490' ? MOD + '/bin/ts_max' : MOD + '/bin/ts' + hz;
+    const r = await ksuExec(script);
+    if (r.errno === 0) {
+      toast((r.stdout || '').trim() || '已切换到 ' + hz + 'Hz');
+    } else {
+      toast('执行失败 (' + (r.stderr || r.errno) + ')');
+    }
+  } catch (e) {
+    toast('KSU 桥不可用，请用 KernelSU 管理器打开');
+  }
+  btn.disabled = false;
+  btn.innerHTML = hz === '480' ? '<span class="hz">480Hz</span><span class="t">游戏 · 已验证</span>'
+    : '<span class="hz">240Hz</span><span class="t">默认 · 标准</span>';
+  setTimeout(readTs, 500);
+}
+
+document.querySelectorAll('.btn[data-ts]').forEach(b => {
+  b.addEventListener('click', () => setTs(b.dataset.ts));
+});
+readTs();
+setInterval(readTs, 5000);
+</script>
+<a href="modes.html" style="display:block;text-align:center;margin-top:14px;padding:14px;border:1px solid var(--line);border-radius:14px;color:#34d399;text-decoration:none;font-size:14px;font-weight:600;background:rgba(52,211,153,.08)">电源档位 · 均衡/省电切换 →</a>
+</body>
+</html>

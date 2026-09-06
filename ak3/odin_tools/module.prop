@@ -1,0 +1,6 @@
+id=odin_tools
+name=MIX4 odin_tools (帧率 + 触控 + 档位 + WebUI)
+version=v8.0
+versionCode=10
+author=ATK12
+description=一体化工具: 120Hz默认+防回落守护+触控采样(480/240) / 均衡·省电双档(内核odin_mode接口) / 内存优化。含 modes WebUI 控制页。无挂载无元模块依赖。

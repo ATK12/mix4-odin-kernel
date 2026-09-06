@@ -1,0 +1,8 @@
+#!/system/bin/sh
+# Switch touch sampling rate to 240Hz (Game_Mode=0, default)
+TG=/sys/class/input/input4/device/touchgame
+MODDIR=/data/adb/modules/odin_tools
+[ -f "$TG" ] || { echo "ERR: touchgame node not found"; exit 1; }
+echo "0 0" > "$TG" 2>/dev/null
+echo 240 > "$MODDIR/.ts_mode" 2>/dev/null
+echo "OK: 240Hz"

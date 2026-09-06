@@ -1,0 +1,11 @@
+#!/system/bin/sh
+# Switch to 60Hz (user manual mode - set all 4 refresh-rate settings)
+MODDIR=/data/adb/modules/odin_tools
+FLAG=$MODDIR/.user_set
+settings put secure miui_refresh_rate 60 2>/dev/null
+settings put system min_refresh_rate 60 2>/dev/null
+settings put system user_refresh_rate 60 2>/dev/null
+settings put system peak_refresh_rate 60 2>/dev/null
+resetprop -n persist.vendor.dfps.level 60 2>/dev/null
+echo 60 > "$FLAG" 2>/dev/null
+echo "OK: 60Hz (manual mode, use fps_auto to enable daemon fallback)"

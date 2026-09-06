@@ -1,0 +1,6 @@
+id=gpu0805_dual
+name=Adreno GPU 驱动 V@0805.0.1 双轨版 (HyperOS 移植)
+version=v1.0
+versionCode=1
+author=ATK12
+description=Adreno 660 用户态驱动栈 V@0805.0.1 (2025-04-09, HyperOS 移植) + 相机双轨架构: GLES 链走 0805(805gsl 隔离), 相机 OpenCL 链走原厂 A11 组件, 0805 驱动下相机完全可用。首启自动构建 lib64 镜像。卸载恢复原驱动。

@@ -40,6 +40,17 @@ jobs:
           python3 tools/pack_boot.py out-artifacts/Image cur_boot.img out-artifacts/boot.img
           ls -la out-artifacts/
 
+      - name: assemble full AK3 zip
+        run: |
+          BASE="https://github.com/$REPO/releases/download/$BASE_TAG"
+          curl -L --retry 3 -o dtbo.img "$BASE/dtbo.img"
+          curl -L --retry 3 -o vendor_boot.img "$BASE/vendor_boot.img"
+          curl -L --retry 3 -o gpu0805-files.tar.zst "$BASE/gpu0805-files.tar.zst"
+          mkdir -p gpu_files
+          tar -I zstd -xf gpu0805-files.tar.zst -C gpu_files
+          python3 tools/pack_ak3.py out-artifacts/Image dtbo.img vendor_boot.img gpu_files/files ak3 out-artifacts/odin-full.zip
+          ls -la out-artifacts/
+
       - name: upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -47,3 +58,4 @@ jobs:
           path: |
             out-artifacts/Image
             out-artifacts/boot.img
+            out-artifacts/odin-full.zip

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0b0e14">
+<title>MIX4 档位控制</title>
+<style>
+:root{
+  --bg:#0b0e14; --card:rgba(255,255,255,.055); --card2:rgba(255,255,255,.03);
+  --line:rgba(255,255,255,.09); --txt:#e8ecf4; --sub:#8b93a7;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans SC",sans-serif;min-height:100%}
+body{background:radial-gradient(1200px 500px at 80% -10%,rgba(79,70,229,.16),transparent 60%),radial-gradient(900px 400px at -10% 20%,rgba(6,182,212,.10),transparent 55%),var(--bg);padding:20px 16px calc(24px + env(safe-area-inset-bottom))}
+.wrap{max-width:430px;margin:0 auto}
+header{text-align:center;padding:8px 0 18px}
+h1{font-size:22px;font-weight:700;letter-spacing:.5px;background:linear-gradient(120deg,#a5b4fc,#22d3ee);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:var(--sub);font-size:12px;margin-top:5px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;backdrop-filter:blur(8px);margin-bottom:14px}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.stat{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
+.stat .k{font-size:11px;color:var(--sub);margin-bottom:6px}
+.stat .v{font-size:18px;font-weight:700;line-height:1}
+.stat.mode .v{color:#a5b4fc}.stat.cpu .v{color:#34d399}.stat.gpu .v{color:#fbbf24}.stat.therm .v{color:#f87171}
+h2{font-size:13px;color:var(--sub);margin:4px 2px 12px;font-weight:500;letter-spacing:.3px}
+.btns{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.btn{position:relative;border:none;border-radius:14px;padding:18px 10px;font-size:17px;font-weight:700;color:#fff;cursor:pointer;transition:transform .12s,filter .12s;box-shadow:0 6px 18px rgba(0,0,0,.35)}
+.btn:active{transform:scale(.96)}
+.btn .t{display:block;font-size:11px;font-weight:500;opacity:.85;margin-top:4px}
+.btnbal{background:linear-gradient(135deg,#0e7490,#06b6d4)}
+.btnbal.on{outline:2px solid #22d3ee}
+.btneco{background:linear-gradient(135deg,#15803d,#22c55e)}
+.btneco.on{outline:2px solid #4ade80}
+.btn:disabled{opacity:.6;pointer-events:none}
+.nav{display:flex;gap:8px;justify-content:center;margin-top:16px;flex-wrap:wrap}
+.nav a{display:inline-block;padding:10px 16px;border:1px solid var(--line);border-radius:12px;color:#a5b4fc;text-decoration:none;font-size:13px;font-weight:600;background:rgba(79,70,229,.08)}
+.desc{font-size:11px;color:#475569;line-height:1.8;margin-top:10px;padding:10px;border:1px dashed var(--line);border-radius:10px}
+#toast{position:fixed;left:50%;bottom:calc(30px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);background:rgba(20,24,32,.95);color:#e2e8f0;padding:10px 18px;border-radius:99px;font-size:13px;border:1px solid var(--line);box-shadow:0 8px 24px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:99}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:sp .8s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>MIX4 电源档位</h1>
+    <div class="sub">odin_tools · 内核 odin_mode 双档</div>
+  </header>
+
+  <div class="card">
+    <div class="grid">
+      <div class="stat mode"><div class="k">当前档位</div><div class="v" id="sMode">--</div></div>
+      <div class="stat therm"><div class="k">温控策略</div><div class="v" id="sTherm">--</div></div>
+      <div class="stat cpu"><div class="k">CPU 上限</div><div class="v" id="sCpu">--</div></div>
+      <div class="stat gpu"><div class="k">GPU 上限</div><div class="v" id="sGpu">--</div></div>
+    </div>
+  </div>
+
+  <h2>一键切换</h2>
+  <div class="btns">
+    <button class="btn btnbal" id="b0"><span>均衡</span><span class="t">CPU 全速 · GPU 840MHz</span></button>
+    <button class="btn btneco" id="b1"><span>省电</span><span class="t">CPU≤1.8G · GPU 540MHz</span></button>
+  </div>
+
+  <div class="desc">
+    均衡: GPU 温控忽略(608 永久解锁)+ CPU 温控正常<br>
+    省电: CPU 1.2/1.6/1.8GHz + GPU 540MHz + 温控全部生效<br>
+    切换即写即生效, 无需重启 · 由 odin_tools 调用内核 odin_mode 接口
+  </div>
+
+
+  <div class="card" style="margin-top:14px">
+    <h2 style="margin:0 0 10px">seccomp 真实 filter(已启用)</h2>
+    <div style="font-size:12px;color:#8b93a7;line-height:1.8">
+      授权 App 保留系统 seccomp filter,仅放行 reboot。<br>
+      验证(内核内置): echo PID &gt; /proc/odin_sectest; cat /proc/odin_sectest<br>
+      · 授权进程 reboot=ALLOW(其余同普通 App)<br>
+      · 未授权进程 reboot=TRAP<br>
+      · su/root 上下文 = no-filter(KSU 提权设计)
+    </div>
+  </div>
+
+  <div class="nav">
+    <a href="index.html">← 帧率控制</a>
+    <a href="ts.html">触控采样</a>
+  </div>
+</div>
+<div id="toast"></div>
+<script>
+let _cc = 0;
+function ksuExec(cmd) {
+  return new Promise((resolve, reject) => {
+    if (typeof ksu === 'undefined' || !ksu || !ksu.exec) { reject(new Error('KSU bridge not available')); return; }
+    const name = 'cb_' + Date.now() + '_' + (_cc++);
+    window[name] = function (errno, stdout, stderr) { delete window[name]; resolve({ errno: errno|0, stdout: stdout||'', stderr: stderr||'' }); };
+    try { ksu.exec(cmd, '{}', name); } catch (e) { delete window[name]; reject(e); }
+  });
+}
+const $ = id => document.getElementById(id);
+let toastTimer = null;
+function toast(msg) { const el=$('toast'); el.textContent=msg; el.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.classList.remove('show'),2200); }
+const SH = '/data/adb/modules/odin_tools/odin_mode.sh';
+
+function fmtHz(v){ v=(v||'').trim(); if(!v) return '--'; const m=parseInt(v,10); return m>=1000000 ? (m/1000000).toFixed(2)+'GHz' : Math.round(m/1000)+'MHz'; }
+
+async function readState(){
+  try {
+    const [m, cpu, gpu] = await Promise.all([
+      ksuExec('cat /sys/kernel/odin_mode/mode'),
+      ksuExec('cat /sys/devices/system/cpu/cpufreq/policy7/scaling_max_freq'),
+      ksuExec('cat /sys/class/kgsl/kgsl-3d0/max_gpuclk'),
+    ]);
+    const mode = (m.stdout||'').trim();
+    $('sMode').textContent = mode==='1' ? '省电' : (mode==='0' ? '均衡' : '未知');
+    $('sMode').style.color = mode==='1' ? '#4ade80' : '#22d3ee';
+    $('sCpu').textContent = fmtHz(cpu.stdout);
+    $('sGpu').textContent = fmtHz(gpu.stdout);
+    $('sTherm').textContent = mode==='1' ? '全部生效' : 'GPU忽略/CPU生效';
+    $('b0').classList.toggle('on', mode==='0');
+    $('b1').classList.toggle('on', mode==='1');
+  } catch(e){ $('sMode').textContent='N/A'; }
+}
+async function setMode(md){
+  const btn = $('b'+md);
+  btn.disabled = true;
+  const old = btn.innerHTML;
+  btn.innerHTML = '<span class="spin"></span>应用中';
+  try {
+    const r = await ksuExec('sh ' + SH + ' ' + md);
+    if (r.errno===0) toast(md==='1' ? '已切换到省电' : '已切换到均衡');
+    else toast('执行失败 ('+(r.stderr||r.errno)+')');
+  } catch(e){ toast('KSU 桥不可用'); }
+  btn.disabled = false;
+  btn.innerHTML = old;
+  setTimeout(readState, 600);
+}
+$('b0').addEventListener('click', ()=>setMode(0));
+$('b1').addEventListener('click', ()=>setMode(1));
+readState();
+setInterval(readState, 4000);
+
+</script>
+</body>
+</html>

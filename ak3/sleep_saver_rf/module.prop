@@ -1,0 +1,6 @@
+id=sleep_saver_rf
+name=MIX4 DeepSleep RF Saver
+version=v1.3
+versionCode=3
+author=ATK12
+description=深睡射频省电 v1.3: 灭屏60s后省电(锁LTE/断数据/关GPS蓝牙),恢复时还原进入省电前的实际状态(不会强制打开被你关闭的数据/蓝牙)。无挂载。

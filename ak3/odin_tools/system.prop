@@ -1,0 +1,5 @@
+persist.vendor.dfps.level=120
+# lmkd: 更高效回收后台内存 (post-fs-data 阶段注入, 早于 lmkd 启动)
+ro.lmk.kill_heaviest_task=true
+ro.lmk.psi_complete_stall_ms=350
+ro.lmk.thrashing_limit=80
