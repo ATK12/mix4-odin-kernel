@@ -15,6 +15,7 @@ cd "$SCRIPT_DIR"
 TREE=""
 FETCH_PACK=""
 CLANG_DIR=""
+CLANG_PACK=""
 CCACHE_DIR=""
 JOBS="$(nproc 2>/dev/null || echo 4)"
 OUT_DIR="$PWD/out-artifacts"
@@ -27,6 +28,7 @@ while [ $# -gt 0 ]; do
     --tree) TREE="$2"; shift 2;;
     --fetch-pack) FETCH_PACK="$2"; shift 2;;
     --clang) CLANG_DIR="$2"; shift 2;;
+    --clang-pack) CLANG_PACK="$2"; shift 2;;
     --ccache) CCACHE_DIR="$2"; shift 2;;
     --jobs) JOBS="$2"; shift 2;;
     --out) OUT_DIR="$2"; shift 2;;
