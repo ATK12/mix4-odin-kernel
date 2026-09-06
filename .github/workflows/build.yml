@@ -1,0 +1,55 @@
+name: MIX4 odin kernel build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths: [ 'odin_patch/**', 'config/**', '.github/workflows/**' ]
+
+env:
+  TZ: Asia/Shanghai
+  REPO: ATK12/mix4-odin-kernel
+  BASE_TAG: v50-full-ATK12
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq zstd pahole bc bison flex cpio libssl-dev libelf-dev ccache
+
+      - name: resolve resource urls
+        run: |
+          API="https://api.github.com/repos/$REPO/releases/tags/$BASE_TAG"
+          curl -s "$API" -o rel.json
+          SRC_URL=$(python3 -c "import json;d=json.load(open('rel.json'));print([a['browser_download_url'] for a in d['assets'] if a['name'].startswith('odin-base-src')][0])")
+          BOOT_URL=$(python3 -c "import json;d=json.load(open('rel.json'));print([a['browser_download_url'] for a in d['assets'] if a['name'].startswith('cur_boot')][0])")
+          echo "SRC_URL=$SRC_URL" >> $GITHUB_ENV
+          echo "BOOT_URL=$BOOT_URL" >> $GITHUB_ENV
+
+      - name: load ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: odin-ccache-main
+
+      - name: build kernel
+        run: bash local/builder_odin.sh --fetch-pack "$SRC_URL" --ccache "$HOME/.ccache" --jobs $(nproc) --out "$PWD/out-artifacts"
+
+      - name: pack boot.img
+        run: |
+          curl -L --retry 3 -o cur_boot.img "$BOOT_URL"
+          python3 tools/pack_boot.py out-artifacts/Image cur_boot.img out-artifacts/boot.img
+          ls -la out-artifacts/
+
+      - name: upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: odin-build
+          path: |
+            out-artifacts/Image
+            out-artifacts/boot.img
