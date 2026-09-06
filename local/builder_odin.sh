@@ -84,7 +84,7 @@ echo ">>> apply odin_patch ..."
 ( cd "$PATCH_DIR" && find . -type d ) | while IFS= read -r d; do
   [ -z "$d" ] && continue
   t="$TREE/$d"
-  if [ -L "$t" ] && [ ! -e "$t/" ]; then
+  if [ -L "$t" ]; then
     echo "  unlink symlink $t"
     rm -f "$t"
   fi
