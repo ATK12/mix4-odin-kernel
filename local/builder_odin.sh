@@ -66,8 +66,8 @@ if [ -z "$CLANG_DIR" ]; then
     tar -I zstd -xf "$WORK/clang.tar.zst" -C "$WORK"
   fi
 fi
-export PATH="$CLANG_DIR/bin:$PATH"
-export LD_LIBRARY_PATH="$CLANG_DIR/lib:$CLANG_DIR/lib64:$LD_LIBRARY_PATH"
+export PATH="$CLANG_DIR:$CLANG_DIR/bin:$PATH"
+export LD_LIBRARY_PATH="$CLANG_DIR:$CLANG_DIR/lib:$CLANG_DIR/lib64:$LD_LIBRARY_PATH"
 
 # ---- ccache ----
 if [ -n "$CCACHE_DIR" ]; then
@@ -79,6 +79,16 @@ fi
 
 # ---- apply odin overlay (idempotent) ----
 echo ">>> apply odin_patch ..."
+# 源树中 drivers/kernelsu 是 -> ../KernelSU/kernel 的符号链接,
+# 而 odin_patch 携带真实目录:先解除这类"目录顶替符号链接"的冲突
+( cd "$PATCH_DIR" && find . -type d ) | while IFS= read -r d; do
+  [ -z "$d" ] && continue
+  t="$TREE/$d"
+  if [ -L "$t" ] && [ ! -e "$t/" ]; then
+    echo "  unlink symlink $t"
+    rm -f "$t"
+  fi
+done
 cp -a "$PATCH_DIR/." "$TREE/"
 grep -q "\[odin" "$TREE/kernel/seccomp.c" || { echo "error: odin_patch verify failed"; exit 1; }
 
@@ -87,7 +97,7 @@ echo ">>> config ..."
 mkdir -p "$TREE/out"
 cp "$CFG" "$TREE/out/.config"
 cd "$TREE"
-MAKEFLAGS="ARCH=arm64 O=out LLVM=1 CC=clang HOSTCC=gcc CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-gnu-"
+MAKEFLAGS="ARCH=arm64 O=out LLVM=1 LLVM_IAS=1 CC=clang-11 HOSTCC=gcc CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-gnu-"
 echo ">>> olddefconfig ..."
 make $MAKEFLAGS olddefconfig < /dev/null
 echo ">>> build Image (jobs=$JOBS) ..."

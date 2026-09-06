@@ -20,7 +20,7 @@ jobs:
       - name: install deps
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq zstd pahole bc bison flex cpio libssl-dev libelf-dev ccache
+          sudo apt-get install -y -qq zstd pahole bc bison flex cpio libssl-dev libelf-dev ccache binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu
 
       - name: resolve resource urls
         run: |
