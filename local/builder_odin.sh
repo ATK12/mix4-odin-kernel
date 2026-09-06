@@ -69,12 +69,22 @@ fi
 export PATH="$CLANG_DIR:$CLANG_DIR/bin:$PATH"
 export LD_LIBRARY_PATH="$CLANG_DIR:$CLANG_DIR/lib:$CLANG_DIR/lib64:$LD_LIBRARY_PATH"
 
-# ---- ccache ----
+# ---- ccache (wrapper symlinks, mirror local rebuild_inc.sh) ----
 if [ -n "$CCACHE_DIR" ]; then
   export CCACHE_DIR="$CCACHE_DIR"
   export CCACHE_COMPRESS=1
   mkdir -p "$CCACHE_DIR"
-  echo ">>> ccache: $CCACHE_DIR"
+  CCBIN="$WORK/ccache-bin"
+  mkdir -p "$CCBIN"
+  CACHE_EXE="$(command -v ccache || true)"
+  if [ -n "$CACHE_EXE" ]; then
+    ln -sf "$CACHE_EXE" "$CCBIN/clang-11"
+    ln -sf "$CACHE_EXE" "$CCBIN/clang"
+    export PATH="$CCBIN:$PATH"
+    echo ">>> ccache wrapper: $CCBIN ($CACHE_EXE)"
+  else
+    echo ">>> warning: ccache not found, building without cache"
+  fi
 fi
 
 # ---- apply odin overlay (idempotent) ----
