@@ -78,16 +78,6 @@ jobs:
             out-artifacts/boot.img
             out-artifacts/odin-full.zip
 
-      - name: publish build release (dispatch only)
-        if: github.event_name == 'workflow_dispatch'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          TAG="build-$(date +%y%m%d%H%M%S)"
-          gh release create "$TAG" out-artifacts/Image out-artifacts/boot.img out-artifacts/odin-full.zip \
-            --repo "$REPO" --title "MIX4 odin kernel build $TAG" \
-            --notes "Auto build artifacts: Image / boot.img / odin-full.zip (complete AK3). Author: ATK12"
-
       - name: upload shared ccache (auto)
         continue-on-error: true
         env:
